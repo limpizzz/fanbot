@@ -1,0 +1,205 @@
+ 
+
+import json 
+
+import os 
+
+import telebot 
+
+from telebot import types 
+
+ 
+
+from info import questions 
+
+ 
+
+TOKEN = '6671421262:AAFrPuk4Ek_TvzOux2SWSeSyAcfenOiorHA' 
+
+bot = telebot.TeleBot(TOKEN) 
+
+ 
+
+#скачиаю инфу с файла 
+
+def load_user_data(): 
+
+    with open("user_data.json", "r") as file: 
+
+        return json.load(file) 
+
+ 
+
+#сохраняю инфу 
+
+def save_user_data(user_data): 
+
+    with open("user_data.json", "w") as file: 
+
+        json.dump(user_data, file) 
+
+ 
+
+#проверяю,есть ли файл 
+
+if os.path.exists("users_data.json"): 
+
+    user_data = load_user_data() 
+
+else: 
+
+    user_data = {} 
+
+ 
+
+ 
+
+@bot.message_handler(commands=["start"]) 
+
+def start_form(message): 
+
+    user_data[message.chat.id] = {'name': 'неизвестный пользователь'} 
+
+    user_data[message.chat.id]['questions_index'] = 0 
+
+ 
+
+    bot.send_message(message.chat.id, 'Добро пожаловать на анкетку "Ты Наталья Мищенко?"') 
+
+    send_question(message.chat.id) 
+
+ 
+
+    save_user_data(user_data) 
+
+ 
+
+def send_question(chat_id): 
+
+    question_index = user_data[chat_id]['questions_index'] 
+
+    question, options = questions[question_index] 
+
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True) 
+
+    for text, _ in options: 
+
+        markup.add(text) 
+
+ 
+
+    bot.send_message(chat_id, question, reply_markup=markup) 
+
+ 
+
+ 
+
+ 
+
+ 
+
+@bot.message_handler(func=lambda message: True) 
+
+def handle_answer(message): 
+
+    chat_id = message.chat.id 
+
+    question_index = user_data[chat_id]['questions_index'] 
+
+    question, options = questions[question_index] 
+
+ 
+
+    # Получаем ответ пользователя 
+
+    user_answer = message.text 
+
+ 
+
+    if user_answer not in [option[0] for option in options]: 
+
+        bot.send_message(chat_id, 'Пожалуйста, выберите один из предложенных вариантов ответа.') 
+
+        return 
+
+ 
+
+    # Обработка ответа 
+
+    for option_text, option_value in options: 
+
+        if user_answer == option_text: 
+
+            user_data[chat_id][question_index] = option_value 
+
+ 
+
+    # Переход к следующему вопросу или завершение анкеты 
+
+    user_data[chat_id]['questions_index'] += 1 
+
+ 
+
+    def calculate_result(user_answers): 
+
+        total_score = 0 
+
+ 
+
+        for answers in user_answers.values(): 
+
+            if isinstance(answers, dict): 
+
+                for answer in answers.values(): 
+
+                    total_score += answer 
+
+ 
+
+        if total_score <= 20: 
+
+            result = "Ты обычный человек" 
+
+        elif 20 < total_score <= 50: 
+
+            result = "Ты копия Натальи Мищенко!" 
+
+        else: 
+
+            result = "Результат не определен" 
+
+ 
+
+        return result 
+
+ 
+
+    if user_data[chat_id]['questions_index'] < len(questions): 
+
+        send_question(chat_id) 
+
+    else: 
+
+        # Анкета завершена, делаем что-то с результатами 
+
+        answers = user_data[chat_id] 
+
+        result = calculate_result(answers) 
+
+        bot.send_message(chat_id, f'Спасибо за прохождение анкеты! Ваш результат: {result}') 
+
+ 
+
+    save_user_data(user_data) 
+
+ 
+
+ 
+
+@bot.message_handler(func=lambda message: True) 
+
+def handle_text_message(message): 
+
+    handle_answer(message.text) 
+
+bot.infinity_polling() 
