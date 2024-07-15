@@ -14,7 +14,7 @@ from info import questions
 
  
 
-TOKEN = '6671421262:AAFrPuk4Ek_TvzOux2SWSeSyAcfenOiorHA' 
+TOKEN = '' 
 
 bot = telebot.TeleBot(TOKEN) 
 
